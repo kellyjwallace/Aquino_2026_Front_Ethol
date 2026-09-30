@@ -1,0 +1,124 @@
+---
+title: "Aquino et al 2026 R Code"
+author: "Wallace"
+date: "2026"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup and Data Import
+#Loading appropriate packages
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(pvclust)
+library(factoextra)
+library(gplots)
+library(effsize)
+
+```
+
+#Organizing Dataframes for Experiment 1
+```{r}
+#Full Dataset
+df<- read.csv("PATH TO CSV FILE")
+
+#for PCA we not did not include territory duration (binary) so removing it from the dataset
+df<-df %>% select (c("fishID", "size", "approaches", "displacement", "duration_in_territory", "lateral_displays", "dcx", "ps6", "cortisol"))
+
+df<- na.omit(df)
+
+```
+
+
+#PCA
+```{r}
+
+dfpca<-df %>% select(-c("fishID", "size"))
+
+ pca <- prcomp(dfpca, center = TRUE,scale = TRUE)
+ summary(pca)
+ allassaypca<-as.data.frame(pca$x)
+ allassaypca$fishID<-df$fishID
+ allassaypca$size<-df$size
+ pca.loadings <- pca$rotation
+ pca.loadings<-as.data.frame(pca.loadings)
+
+#PCA variance explained by each PC 
+p<-fviz_eig(pca, addlabels = TRUE, linecolor = "transparent", ylim = c(0, 50))+ theme_classic(base_size = 12)
+plot(p)
+
+#which variables load most closely with each other? visualization
+p<-fviz_pca_var(pca,
+  col.var = "contrib",
+  arrowsize = 1,
+  gradient.cols = c("#440154FF", "#3B528BFF", "#21908CFF"),
+  repel = TRUE) + #repel avoids overlapping text
+  theme_classic(base_size = 12)
+plot(p)
+
+#which variables load most closely with each other, according to a hierarchical clustering analysis?
+heatmap.2(as.matrix(pca.loadings), Colv = NA, Rowv = NA,trace="none",density.info="none", xlab = "df loadings")
+set.seed(1234)
+hc<- pvclust(t(pca.loadings), method.dist = "correlation", 
+            method.hclust = "average", nboot = 100)
+plot(hc, hang = -1, cex = 0.6, lwd = 3:1, labels = F, print.pv=FALSE, print.num=FALSE)
+plot(hc, hang = -1, cex = 0.6, lwd = 3:1)
+pvrect(hc)
+
+
+```
+
+
+#Asking if PC1 and/or PC2 significantly differ between large and small fish
+```{r}
+
+#do PC1 or PC2 scores differ between large and small fish?
+p<-ggplot(allassaypca, aes(x= PC1, y= PC2, color = size))+
+  geom_point(size = 4) +
+  scale_color_manual(values= c("gold3", "darkorange3"))+
+  theme_classic(base_size = 18)#+
+  #stat_ellipse()
+plot(p)
+
+t_test<-t.test(allassaypca$PC1~allassaypca$size)
+p_value_t<-t_test$p.value
+print(paste("p value PC1 large v small", round(p_value_t, 4)))
+cohen.d(PC1 ~ size, data = allassaypca)
+
+t_test<-t.test(allassaypca$PC2~allassaypca$size)
+p_value_t<-t_test$p.value
+print(paste("p value PC2 large v small", round(p_value_t, 4)))
+cohen.d(PC2 ~ size, data = allassaypca)
+
+t_test<-t.test(allassaypca$PC3~allassaypca$size)
+p_value_t<-t_test$p.value
+print(paste("p value PC3 large v small", round(p_value_t, 4)))
+
+p <- ggplot(allassaypca, aes(x=size, y=PC1)) +
+  geom_boxplot(aes(fill = size), lwd=1, position = position_dodge(width = 0.8)) +
+  geom_dotplot(aes(type = size), binaxis = "y", stackdir = "center", position =    
+  position_dodge(width = 0.8), dotsize = 1,alpha = 0.5) +
+  theme_classic(base_size = 18) +
+  scale_fill_manual(values= c("gold3", "darkorange3"))+
+  labs(x="Size Category", y="PC1 Score")+
+  theme(axis.text.x = element_text(size = 16))+
+  theme(axis.text.y = element_text(size = 15))
+plot(p)
+
+p <- ggplot(allassaypca, aes(x=size, y=PC2)) +
+  geom_boxplot(aes(fill = size), lwd=1, position = position_dodge(width = 0.8)) +
+  geom_dotplot(aes(type = size), binaxis = "y", stackdir = "center", position =    
+  position_dodge(width = 0.8), dotsize = 1,alpha = 0.5) +
+  theme_classic(base_size = 18) +
+  scale_fill_manual(values= c("gold3", "darkorange3"))+
+  labs(x="Size Category", y="PC2 Score") +
+  theme(axis.text.x = element_text(size = 16))+
+  theme(axis.text.y = element_text(size = 15))
+plot(p)
+
+```
